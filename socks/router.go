@@ -3,6 +3,7 @@ package socks
 import (
 	"errors"
 	"fmt"
+	"log"
 
 	"github.com/pebbe/zmq4"
 )
@@ -16,9 +17,9 @@ type ZRouter struct {
 	Sock *zmq4.Socket
 }
 
-func (d *ZRouter) Bind(port int) error {
-	conn := fmt.Sprintf("0.0.0.0:%d", port)
-	err := d.Sock.Bind(conn)
+func (r *ZRouter) Bind(ip string, port int) error {
+	conn := fmt.Sprintf("%s:%d", ip, port)
+	err := r.Sock.Bind(conn)
 	if err != nil {
 		return err
 	}
@@ -26,13 +27,29 @@ func (d *ZRouter) Bind(port int) error {
 	return nil
 }
 
+func (r *ZRouter) Run() {
+loop:
+	for {
+		select {
+		case msg := <-r.In:
+			fmt.Print(msg)
+
+		case err := <-r.Err:
+			fmt.Printf("Got error %s", err)
+		case <-r.Done:
+			log.Println("received done signal")
+			break loop
+		}
+	}
+}
+
 func NewRouter(ID string) (*ZRouter, error) {
-	dealer, err := zmq4.NewSocket(zmq4.DEALER)
+	router, err := zmq4.NewSocket(zmq4.ROUTER)
 	if err != nil {
 		return &ZRouter{}, err
 	}
 
-	err = dealer.SetIdentity(ID)
+	err = router.SetIdentity(ID)
 	if err != nil {
 		return &ZRouter{}, errors.New(fmt.Sprintf("Tried setting identity but got error: %s", err))
 	}
@@ -41,5 +58,5 @@ func NewRouter(ID string) (*ZRouter, error) {
 	out := make(chan []byte)
 	er := make(chan error)
 	done := make(chan bool)
-	return &ZRouter{ID: ID, In: in, Out: out, Err: er, Done: done, Sock: dealer}, nil
+	return &ZRouter{ID: ID, In: in, Out: out, Err: er, Done: done, Sock: router}, nil
 }
