@@ -11,6 +11,8 @@ type ZRouter struct {
 	ID   string
 	In   chan []byte
 	Out  chan []byte
+	Err  chan error
+	Done chan bool
 	Sock *zmq4.Socket
 }
 
@@ -37,6 +39,7 @@ func NewRouter(ID string) (*ZRouter, error) {
 
 	in := make(chan []byte)
 	out := make(chan []byte)
-
-	return &ZRouter{ID: ID, In: in, Out: out, Sock: dealer}, nil
+	er := make(chan error)
+	done := make(chan bool)
+	return &ZRouter{ID: ID, In: in, Out: out, Err: er, Done: done, Sock: dealer}, nil
 }

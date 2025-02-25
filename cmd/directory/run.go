@@ -1,7 +1,13 @@
 package main
 
-import "fmt"
+import (
+	"log"
+
+	"github.com/Irooniam/msg/socks"
+)
 
 func main() {
-	fmt.Println("vim-go")
+	log.Println("starting directory service...")
+	router, err := socks.NewRouter("router")
+	log.Println(router, err)
 }
