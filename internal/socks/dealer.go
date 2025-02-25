@@ -3,6 +3,7 @@ package socks
 import (
 	"errors"
 	"fmt"
+	"log"
 
 	"github.com/pebbe/zmq4"
 )
@@ -35,6 +36,7 @@ func NewDealer(ID string) (*ZDealer, error) {
 		return &ZDealer{}, errors.New(fmt.Sprintf("Tried setting identity but got error: %s", err))
 	}
 
+	log.Println("this is new dealer")
 	in := make(chan []byte)
 	out := make(chan []byte)
 

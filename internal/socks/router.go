@@ -9,21 +9,27 @@ import (
 )
 
 type ZRouter struct {
-	ID   string
+	id   string
 	In   chan []byte
 	Out  chan []byte
 	Err  chan error
 	Done chan bool
-	Sock *zmq4.Socket
+	sock *zmq4.Socket
+}
+
+func (r *ZRouter) Blah() {
+	log.Println("blah")
 }
 
 func (r *ZRouter) Bind(ip string, port int) error {
-	conn := fmt.Sprintf("%s:%d", ip, port)
-	err := r.Sock.Bind(conn)
+	conn := fmt.Sprintf("tcp://%s:%d", ip, port)
+	log.Println("attempting to bind router socket to ", conn)
+	err := r.sock.Bind(conn)
 	if err != nil {
 		return err
 	}
 
+	log.Println("successfully bound socket to ", conn)
 	return nil
 }
 
@@ -33,7 +39,6 @@ loop:
 		select {
 		case msg := <-r.In:
 			fmt.Print(msg)
-
 		case err := <-r.Err:
 			fmt.Printf("Got error %s", err)
 		case <-r.Done:
@@ -43,7 +48,7 @@ loop:
 	}
 }
 
-func NewRouter(ID string) (*ZRouter, error) {
+func NewZRouter(ID string) (*ZRouter, error) {
 	router, err := zmq4.NewSocket(zmq4.ROUTER)
 	if err != nil {
 		return &ZRouter{}, err
@@ -54,9 +59,10 @@ func NewRouter(ID string) (*ZRouter, error) {
 		return &ZRouter{}, errors.New(fmt.Sprintf("Tried setting identity but got error: %s", err))
 	}
 
+	log.Println("new router")
 	in := make(chan []byte)
 	out := make(chan []byte)
 	er := make(chan error)
 	done := make(chan bool)
-	return &ZRouter{ID: ID, In: in, Out: out, Err: er, Done: done, Sock: router}, nil
+	return &ZRouter{id: ID, In: in, Out: out, Err: er, Done: done, sock: router}, nil
 }
