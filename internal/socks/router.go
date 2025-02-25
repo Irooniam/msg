@@ -34,6 +34,7 @@ func (r *ZRouter) Bind(ip string, port int) error {
 }
 
 func (r *ZRouter) Run() {
+	log.Println("Starting to listen for messages on router...")
 loop:
 	for {
 		select {
