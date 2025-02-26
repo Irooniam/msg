@@ -1,5 +1,17 @@
 syntax = "proto3";
-package connections;
+package envelope;
+
+import "google/protobuf/timestamp.proto";
+
+option go_package = ".";
+
+message Envelope {
+  string src = 1;
+  int32 src_port = 2;
+  string dst = 3;
+  int32 dst_port = 4;
+  google.protobuf.Timestamp sent_at = 5;
+}  
 
 
 
