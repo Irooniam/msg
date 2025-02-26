@@ -5,12 +5,26 @@ import "google/protobuf/timestamp.proto";
 
 option go_package = ".";
 
+enum Actions {
+        ADD_DEALER = 0;
+        REMOVE_DEALER = 1;
+        ADD_CLIENT = 2;
+        REMOVE_CLIENT = 3;
+}
+
+/**
+ * Every message sent must have use Evelope
+**/
 message Envelope {
-  string src = 1;
-  int32 src_port = 2;
-  string dst = 3;
-  int32 dst_port = 4;
-  google.protobuf.Timestamp sent_at = 5;
+  string src_id = 1;
+  string src = 2;
+  int32 src_port = 3;
+  string dst_id = 4;
+  string dst = 5;
+  int32 dst_port = 6;
+  Actions actions = 7;
+  string msg_id = 8;
+  google.protobuf.Timestamp sent_at = 9;
 }  
 
 
