@@ -3,14 +3,13 @@ package main
 import (
 	"fmt"
 	"log"
-	"net/http"
 	"os"
+	"time"
 
 	"github.com/Irooniam/msg/conf"
 	"github.com/Irooniam/msg/internal/rest"
 	"github.com/Irooniam/msg/internal/socks"
 	"github.com/joho/godotenv"
-	"github.com/julienschmidt/httprouter"
 )
 
 func main() {
@@ -38,24 +37,29 @@ func main() {
 	}
 	log.Printf("Successfully connected dealer socket to directory: %s", routerUri)
 
-	//get directory host/port to connect dealer t
-	var dhost, dport string
-	if dhost = os.Getenv(conf.MSG_DIR_HOST); dhost == "" {
-		log.Fatalf("env var %s is not set", dhost)
+	if err := rest.ChkiHTTPConf(); err != nil {
+		log.Fatal(err)
 	}
 
-	if dport = os.Getenv(conf.MSG_DIR_PORT); dport == "" {
-		log.Fatalf("env var %s is not set", dport)
+	serverstr := fmt.Sprintf("%s:%s", os.Getenv(conf.MSG_IHTTP_HOST), os.Getenv(conf.MSG_IHTTP_PORT))
+	server := rest.NewREST(serverstr, dealer)
+	server.SetupHandlers()
+
+	go dealer.Run()
+
+	time.Sleep(time.Second * 1)
+
+	for i := 0; i < 4; i++ {
+		log.Println("trying to send from ihttp to router")
+		dealer.SendMsg([]byte("router"))
+		log.Println("ihttp sent", i)
 	}
 
-	if err := dealer.Connect(fmt.Sprintf("%s:%s", dhost, dport)); err != nil {
-		log.Fatalf("Cant connect to dealer: %s", err)
+	log.Printf("Starting iHTTP listening on %s", serverstr)
+
+	err = server.Server.ListenAndServe()
+	if err != nil {
+		log.Fatal(err)
 	}
 
-	handlers := rest.DefaultH{}
-
-	hroute := httprouter.New()
-	hroute.GET("/", handlers.Index)
-
-	log.Fatal(http.ListenAndServe(":8080", hroute))
 }

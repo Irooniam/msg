@@ -1,11 +1,12 @@
 package main
 
 import (
+	"fmt"
 	"log"
 	"os"
-	"strconv"
 	"sync"
 
+	"github.com/Irooniam/msg/conf"
 	"github.com/Irooniam/msg/internal/socks"
 	"github.com/joho/godotenv"
 )
@@ -21,21 +22,8 @@ func main() {
 		log.Fatal(err)
 	}
 
-	var dip string
-	var dport int
-
-	if dip = os.Getenv(ENV_DIR_IP); dip == "" {
-		log.Fatalf("Expected ip for directory but env var is %s", dip)
-	}
-
-	//env var will come through as string
-	sdport := os.Getenv(ENV_DIR_PORT)
-	if sdport == "" {
-		log.Fatalf("Expected port for directory but en var is %s", sdport)
-	}
-	dport, err = strconv.Atoi(sdport)
-	if err != nil {
-		log.Fatalf("Unable to convert directory port into int: %s", err)
+	if err := socks.ChkRouterConf(); err != nil {
+		log.Fatal(err)
 	}
 
 	router, err := socks.NewZRouter("router")
@@ -43,7 +31,8 @@ func main() {
 		log.Fatal("cant create router ", err)
 	}
 
-	if err := router.Bind(dip, dport); err != nil {
+	rstr := fmt.Sprintf("%s:%s", os.Getenv(conf.MSG_DIR_HOST), os.Getenv(conf.MSG_DIR_PORT))
+	if err := router.Bind(rstr); err != nil {
 		log.Fatal("cant bind router ", err)
 	}
 

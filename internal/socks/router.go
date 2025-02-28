@@ -4,7 +4,9 @@ import (
 	"errors"
 	"fmt"
 	"log"
+	"os"
 
+	"github.com/Irooniam/msg/conf"
 	"github.com/pebbe/zmq4"
 )
 
@@ -17,12 +19,20 @@ type ZRouter struct {
 	sock *zmq4.Socket
 }
 
-func (r *ZRouter) Blah() {
-	log.Println("blah")
+func ChkRouterConf() error {
+	if os.Getenv(conf.MSG_DIR_HOST) == "" {
+		return errors.New(fmt.Sprintf("env var for directory host %s is not set", conf.MSG_DIR_HOST))
+	}
+
+	if os.Getenv(conf.MSG_DIR_PORT) == "" {
+		return errors.New(fmt.Sprintf("env var for directory port %s is not set", conf.MSG_DIR_PORT))
+	}
+
+	return nil
 }
 
-func (r *ZRouter) Bind(ip string, port int) error {
-	conn := fmt.Sprintf("tcp://%s:%d", ip, port)
+func (r *ZRouter) Bind(bindstr string) error {
+	conn := fmt.Sprintf("tcp://%s", bindstr)
 	log.Println("attempting to bind router socket to ", conn)
 	err := r.sock.Bind(conn)
 	if err != nil {
@@ -34,19 +44,36 @@ func (r *ZRouter) Bind(ip string, port int) error {
 }
 
 func (r *ZRouter) Run() {
-	log.Println("Starting to listen for messages on router...")
-loop:
+	log.Println("Starting loop for sending / receiving messages on router socket")
 	for {
 		select {
-		case msg := <-r.In:
-			fmt.Print(msg)
-		case err := <-r.Err:
-			fmt.Printf("Got error %s", err)
-		case <-r.Done:
-			log.Println("received done signal")
-			break loop
+		case out := <-r.Out:
+			r.SendMsg([]byte("dealer"), out)
+			log.Printf("Out channel - send mess from router socket: %s", string(out))
+		case <-r.RecvMsg():
 		}
 	}
+}
+
+func (r *ZRouter) SendMsg(ID []byte, msg []byte) {
+	r.sock.SendBytes([]byte(ID), zmq4.SNDMORE)
+	r.sock.SendBytes(msg, 0)
+
+}
+
+func (r *ZRouter) RecvMsg() <-chan []byte {
+	msg, err := r.sock.RecvMessage(0)
+	log.Println("From: ", msg[0], " -- ", msg[2])
+
+	if err != nil {
+		log.Println("error on router recvmsg function", msg, err)
+		return r.In
+	}
+
+	go func() {
+		r.In <- []byte(msg[2])
+	}()
+	return r.In
 }
 
 func NewZRouter(ID string) (*ZRouter, error) {

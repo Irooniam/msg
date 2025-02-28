@@ -3,6 +3,7 @@ package socks
 import (
 	"errors"
 	"fmt"
+	"log"
 	"os"
 
 	"github.com/Irooniam/msg/conf"
@@ -13,7 +14,8 @@ type ZDealer struct {
 	ID   string
 	In   chan []byte
 	Out  chan []byte
-	Sock *zmq4.Socket
+	Done chan bool
+	sock *zmq4.Socket
 }
 
 // centralize config checking here
@@ -41,9 +43,46 @@ func ChkDealerConf() error {
 	return nil
 }
 
+/*
+we cant share socket across goroutines
+all send/recv biz rules has to be in
+one goroutine
+*/
+func (d *ZDealer) Run() {
+	log.Println("in the run...")
+	for {
+		log.Println("in the for loop")
+		select {
+		case msg := <-d.In:
+			fmt.Print("***** dealer IN channel: send message to router", msg)
+			d.sock.SendBytes([]byte(d.ID), zmq4.SNDMORE)
+			d.sock.SendBytes([]byte(msg), 0)
+			log.Println("dealer IN channel send to router - complete")
+		case msg := <-d.RecvMsg():
+			log.Println("||||| recived message from router ", string(msg))
+		}
+
+	}
+}
+
+func (d *ZDealer) RecvMsg() <-chan []byte {
+	msg, err := d.sock.Recv(zmq4.DONTWAIT)
+	if err != nil {
+		log.Println(" receive error ", msg, err)
+		return d.Out
+	}
+
+	log.Println("RecvMsg function pre", msg, err)
+	go func() {
+		d.Out <- []byte("wtf")
+	}()
+	log.Println("post RecvMsg function")
+	return d.Out
+}
+
 func (d *ZDealer) Listen(connstr string) error {
 	conn := fmt.Sprintf("tcp://%s", connstr)
-	err := d.Sock.Bind(conn)
+	err := d.sock.Bind(conn)
 	if err != nil {
 		return err
 	}
@@ -54,7 +93,8 @@ func (d *ZDealer) Listen(connstr string) error {
 // host/port is that of router
 func (d *ZDealer) Connect(connstr string) error {
 	conn := fmt.Sprintf("tcp://%s", connstr)
-	err := d.Sock.Connect(conn)
+	log.Println("Dealer connecting to router ", conn)
+	err := d.sock.Connect(conn)
 	if err != nil {
 		return err
 	}
@@ -75,6 +115,5 @@ func NewDealer(ID string) (*ZDealer, error) {
 
 	in := make(chan []byte)
 	out := make(chan []byte)
-
-	return &ZDealer{ID: ID, In: in, Out: out, Sock: dealer}, nil
+	return &ZDealer{ID: ID, In: in, Out: out, sock: dealer}, nil
 }
