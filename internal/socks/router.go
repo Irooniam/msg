@@ -12,8 +12,8 @@ import (
 
 type ZRouter struct {
 	id   string
-	In   chan []byte
-	Out  chan []byte
+	In   chan [][]byte
+	Out  chan [][]byte
 	Err  chan error
 	Done chan bool
 	sock *zmq4.Socket
@@ -48,22 +48,22 @@ func (r *ZRouter) Run() {
 	for {
 		select {
 		case out := <-r.Out:
-			r.SendMsg([]byte("dealer"), out)
-			log.Printf("Out channel - send mess from router socket: %s", string(out))
-		case <-r.RecvMsg():
+			r.SendMsg(out[0], out[1])
+		case msg := <-r.RecvMsg():
+			log.Printf("received message on router socket. From %s - payload %s", msg[0], msg[1])
 		}
 	}
 }
 
 func (r *ZRouter) SendMsg(ID []byte, msg []byte) {
-	r.sock.SendBytes([]byte(ID), zmq4.SNDMORE)
+	r.sock.SendBytes(ID, zmq4.SNDMORE)
 	r.sock.SendBytes(msg, 0)
 
 }
 
-func (r *ZRouter) RecvMsg() <-chan []byte {
-	msg, err := r.sock.RecvMessage(0)
-	log.Println("From: ", msg[0], " -- ", msg[2])
+func (r *ZRouter) RecvMsg() <-chan [][]byte {
+	msg, err := r.sock.RecvMessageBytes(0)
+	//log.Println("From: ", msg[0], " -- ", msg[2])
 
 	if err != nil {
 		log.Println("error on router recvmsg function", msg, err)
@@ -71,7 +71,7 @@ func (r *ZRouter) RecvMsg() <-chan []byte {
 	}
 
 	go func() {
-		r.In <- []byte(msg[2])
+		r.In <- [][]byte{msg[0], msg[2]}
 	}()
 	return r.In
 }
@@ -88,8 +88,8 @@ func NewZRouter(ID string) (*ZRouter, error) {
 	}
 
 	log.Println("new router")
-	in := make(chan []byte)
-	out := make(chan []byte)
+	in := make(chan [][]byte)
+	out := make(chan [][]byte)
 	er := make(chan error)
 	done := make(chan bool)
 	return &ZRouter{id: ID, In: in, Out: out, Err: er, Done: done, sock: router}, nil
