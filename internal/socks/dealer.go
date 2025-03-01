@@ -66,7 +66,7 @@ func (d *ZDealer) Run() {
 }
 
 func (d *ZDealer) RecvMsg() <-chan []byte {
-	msg, err := d.sock.Recv(zmq4.DONTWAIT)
+	msg, err := d.sock.RecvMessageBytes(zmq4.DONTWAIT)
 	if err != nil {
 		log.Println(" receive error ", msg, err)
 		return d.Out
@@ -74,7 +74,7 @@ func (d *ZDealer) RecvMsg() <-chan []byte {
 
 	log.Println("RecvMsg function pre", msg, err)
 	go func() {
-		d.Out <- []byte("wtf")
+		d.Out <- msg[0]
 	}()
 	log.Println("post RecvMsg function")
 	return d.Out

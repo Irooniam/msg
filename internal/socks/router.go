@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"log"
 	"os"
+	"time"
 
 	"github.com/Irooniam/msg/conf"
 	"github.com/pebbe/zmq4"
@@ -12,9 +13,8 @@ import (
 
 type ZRouter struct {
 	id   string
-	In   chan [][]byte
-	Out  chan [][]byte
-	Err  chan error
+	In   chan [][]byte //channel that received in
+	Out  chan [][]byte //channel used to send msg out
 	Done chan bool
 	sock *zmq4.Socket
 }
@@ -48,25 +48,29 @@ func (r *ZRouter) Run() {
 	for {
 		select {
 		case out := <-r.Out:
-			r.SendMsg(out[0], out[1])
+			log.Printf("sending message out from %s - %s", out[0], out[1])
+			r.sendMsg(out[0], out[1])
 		case msg := <-r.RecvMsg():
 			log.Printf("received message on router socket. From %s - payload %s", msg[0], msg[1])
+		case <-r.Done:
+			log.Println("looks like we are done...")
+			return
 		}
 	}
 }
 
-func (r *ZRouter) SendMsg(ID []byte, msg []byte) {
+func (r *ZRouter) sendMsg(ID []byte, msg []byte) {
 	r.sock.SendBytes(ID, zmq4.SNDMORE)
 	r.sock.SendBytes(msg, 0)
 
 }
 
-func (r *ZRouter) RecvMsg() <-chan [][]byte {
-	msg, err := r.sock.RecvMessageBytes(0)
-	//log.Println("From: ", msg[0], " -- ", msg[2])
+func (r *ZRouter) RecvMsg() chan [][]byte {
+	msg, err := r.sock.RecvMessageBytes(zmq4.DONTWAIT)
 
 	if err != nil {
-		log.Println("error on router recvmsg function", msg, err)
+		log.Printf("error on router recvmsg function '%s' - '%s'", msg, err)
+		time.Sleep(time.Millisecond * 10)
 		return r.In
 	}
 
@@ -87,10 +91,9 @@ func NewZRouter(ID string) (*ZRouter, error) {
 		return &ZRouter{}, errors.New(fmt.Sprintf("Tried setting identity but got error: %s", err))
 	}
 
-	log.Println("new router")
 	in := make(chan [][]byte)
 	out := make(chan [][]byte)
-	er := make(chan error)
 	done := make(chan bool)
-	return &ZRouter{id: ID, In: in, Out: out, Err: er, Done: done, sock: router}, nil
+	log.Println("new router")
+	return &ZRouter{id: ID, In: in, Out: out, Done: done, sock: router}, nil
 }
