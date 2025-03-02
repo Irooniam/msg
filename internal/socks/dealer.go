@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"log"
 	"os"
+	"time"
 
 	"github.com/Irooniam/msg/conf"
 	"github.com/pebbe/zmq4"
@@ -49,17 +50,17 @@ all send/recv biz rules has to be in
 one goroutine
 */
 func (d *ZDealer) Run() {
-	log.Println("in the run...")
+	log.Println("Starting loop to receive/send on dealer socket...")
 	for {
-		log.Println("in the for loop")
 		select {
-		case msg := <-d.In:
-			fmt.Print("***** dealer IN channel: send message to router", msg)
-			d.sock.SendBytes([]byte(d.ID), zmq4.SNDMORE)
-			d.sock.SendBytes([]byte(msg), 0)
-			log.Println("dealer IN channel send to router - complete")
+		case out := <-d.Out:
+			log.Printf("sending message out to router payload: %s", out)
+			d.sendMsg(out)
 		case msg := <-d.RecvMsg():
-			log.Println("||||| recived message from router ", string(msg))
+			log.Printf("received message on dealer socket. payload %s", msg)
+		case <-d.Done:
+			log.Println("looks like we are done...")
+			return
 		}
 
 	}
@@ -68,16 +69,21 @@ func (d *ZDealer) Run() {
 func (d *ZDealer) RecvMsg() <-chan []byte {
 	msg, err := d.sock.RecvMessageBytes(zmq4.DONTWAIT)
 	if err != nil {
-		log.Println(" receive error ", msg, err)
+		log.Println(" dealer socket receive error ", msg, err)
+		time.Sleep(time.Millisecond * 10)
 		return d.Out
 	}
 
-	log.Println("RecvMsg function pre", msg, err)
 	go func() {
 		d.Out <- msg[0]
 	}()
 	log.Println("post RecvMsg function")
 	return d.Out
+}
+
+func (d *ZDealer) sendMsg(msg []byte) {
+	d.sock.SendBytes(msg, 0)
+
 }
 
 func (d *ZDealer) Listen(connstr string) error {
@@ -115,5 +121,6 @@ func NewDealer(ID string) (*ZDealer, error) {
 
 	in := make(chan []byte)
 	out := make(chan []byte)
-	return &ZDealer{ID: ID, In: in, Out: out, sock: dealer}, nil
+	done := make(chan bool)
+	return &ZDealer{ID: ID, In: in, Out: out, Done: done, sock: dealer}, nil
 }

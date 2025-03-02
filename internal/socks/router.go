@@ -13,8 +13,8 @@ import (
 
 type ZRouter struct {
 	id   string
-	In   chan [][]byte //channel that received in
-	Out  chan [][]byte //channel used to send msg out
+	In   chan [][]byte
+	Out  chan [][]byte
 	Done chan bool
 	sock *zmq4.Socket
 }
@@ -48,7 +48,7 @@ func (r *ZRouter) Run() {
 	for {
 		select {
 		case out := <-r.Out:
-			log.Printf("sending message out from %s - %s", out[0], out[1])
+			log.Printf("sending message out to %s - %s", out[0], out[1])
 			r.sendMsg(out[0], out[1])
 		case msg := <-r.RecvMsg():
 			log.Printf("received message on router socket. From %s - payload %s", msg[0], msg[1])
@@ -75,7 +75,7 @@ func (r *ZRouter) RecvMsg() chan [][]byte {
 	}
 
 	go func() {
-		r.In <- [][]byte{msg[0], msg[2]}
+		r.In <- [][]byte{msg[0], msg[1]}
 	}()
 	return r.In
 }
