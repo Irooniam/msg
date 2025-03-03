@@ -3,13 +3,23 @@ package envelope;
 
 import "google/protobuf/timestamp.proto";
 
-option go_package = ".";
+option go_package = "github.com/Irooniam/msg/protos";
 
+/**
+ * Every message sent needs to have action 
+ * so we know which proto messages to use.
+ * action is 1st frame sent in zmq message
+ **/
 enum Actions {
-        ADD_DEALER = 0;
-        REMOVE_DEALER = 1;
-        ADD_CLIENT = 2;
-        REMOVE_CLIENT = 3;
+        UNKNOWN = 0;
+        ADD_DEALER = 1;
+        REMOVE_DEALER = 2;
+        ADD_CLIENT = 3;
+        REMOVE_CLIENT = 4;
+}
+
+message ActionMsg {
+  Actions actions = 1;
 }
 
 /**
