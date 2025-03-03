@@ -51,7 +51,7 @@ func (r *ZRouter) Run() {
 			log.Printf("sending message out to %s - %s", out[0], out[1])
 			r.sendMsg(out[0], out[1])
 		case msg := <-r.RecvMsg():
-			log.Printf("received message on router socket. From %s - payload %s", msg[0], msg[1])
+			log.Printf("received message on router socket. From %s - action %s - payload %s", msg[0], msg[1], msg[2])
 		case <-r.Done:
 			log.Println("looks like we are done...")
 			return
@@ -75,7 +75,7 @@ func (r *ZRouter) RecvMsg() chan [][]byte {
 	}
 
 	go func() {
-		r.In <- [][]byte{msg[0], msg[1]}
+		r.In <- [][]byte{msg[0], msg[1], msg[2]}
 	}()
 	return r.In
 }

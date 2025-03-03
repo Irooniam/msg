@@ -82,6 +82,7 @@ func (d *ZDealer) RecvMsg() <-chan []byte {
 }
 
 func (d *ZDealer) sendMsg(msg []byte) {
+	d.sock.SendBytes([]byte("ACTION"), zmq4.SNDMORE)
 	d.sock.SendBytes(msg, 0)
 
 }
