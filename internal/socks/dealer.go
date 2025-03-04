@@ -13,8 +13,8 @@ import (
 
 type ZDealer struct {
 	ID   string
-	In   chan []byte
-	Out  chan []byte
+	In   chan [][]byte
+	Out  chan [][]byte
 	Done chan bool
 	sock *zmq4.Socket
 }
@@ -54,8 +54,8 @@ func (d *ZDealer) Run() {
 	for {
 		select {
 		case out := <-d.Out:
-			log.Printf("sending message out to router payload: %s", out)
-			d.sendMsg(out)
+			log.Printf("sending message out to router payload: %v", out)
+			d.sendMsg(out[0], out[1])
 		case msg := <-d.RecvMsg():
 			log.Printf("received message on dealer socket. payload %s", msg)
 		case <-d.Done:
@@ -66,25 +66,26 @@ func (d *ZDealer) Run() {
 	}
 }
 
-func (d *ZDealer) RecvMsg() <-chan []byte {
+func (d *ZDealer) RecvMsg() <-chan [][]byte {
 	msg, err := d.sock.RecvMessageBytes(zmq4.DONTWAIT)
 	if err != nil {
 		log.Println(" dealer socket receive error ", msg, err)
 		time.Sleep(time.Millisecond * 10)
-		return d.Out
+		return d.In
 	}
 
 	go func() {
-		d.Out <- msg[0]
+		d.In <- [][]byte{msg[0], msg[1]}
 	}()
-	log.Println("post RecvMsg function")
-	return d.Out
+	return d.In
 }
 
-func (d *ZDealer) sendMsg(msg []byte) {
-	d.sock.SendBytes([]byte("ACTION"), zmq4.SNDMORE)
-	d.sock.SendBytes(msg, 0)
+func (d *ZDealer) sendMsg(action []byte, msg []byte) {
+	x, err := d.sock.SendBytes(action, zmq4.SNDMORE)
+	log.Println(x, err)
 
+	x, err = d.sock.SendBytes(msg, 0)
+	log.Println(x, err)
 }
 
 func (d *ZDealer) Listen(connstr string) error {
@@ -120,8 +121,8 @@ func NewDealer(ID string) (*ZDealer, error) {
 		return &ZDealer{}, errors.New(fmt.Sprintf("Tried setting identity but got error: %s", err))
 	}
 
-	in := make(chan []byte)
-	out := make(chan []byte)
+	in := make(chan [][]byte)
+	out := make(chan [][]byte)
 	done := make(chan bool)
 	return &ZDealer{ID: ID, In: in, Out: out, Done: done, sock: dealer}, nil
 }

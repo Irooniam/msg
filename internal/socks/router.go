@@ -49,23 +49,27 @@ func (r *ZRouter) Run() {
 		select {
 		case out := <-r.Out:
 			log.Printf("sending message out to %s - %s", out[0], out[1])
-			r.sendMsg(out[0], out[1])
+			r.sendMsg(out[0], out[1], out[2])
 		case msg := <-r.RecvMsg():
 			log.Printf("received message on router socket. From %s - action %s - payload %s", msg[0], msg[1], msg[2])
 		case <-r.Done:
 			log.Println("looks like we are done...")
 			return
+			//default:
+			//	log.Println("sleepy |||||||||||||||")
+			//	time.Sleep(time.Millisecond * 10)
 		}
 	}
 }
 
-func (r *ZRouter) sendMsg(ID []byte, msg []byte) {
+func (r *ZRouter) sendMsg(ID []byte, action []byte, msg []byte) {
 	r.sock.SendBytes(ID, zmq4.SNDMORE)
+	r.sock.SendBytes(action, zmq4.SNDMORE)
 	r.sock.SendBytes(msg, 0)
 
 }
 
-func (r *ZRouter) RecvMsg() chan [][]byte {
+func (r *ZRouter) RecvMsg() <-chan [][]byte {
 	msg, err := r.sock.RecvMessageBytes(zmq4.DONTWAIT)
 
 	if err != nil {
