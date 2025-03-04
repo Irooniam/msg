@@ -51,13 +51,15 @@ func (r *ZRouter) Run() {
 			log.Printf("sending message out to %s - %s", out[0], out[1])
 			r.sendMsg(out[0], out[1], out[2])
 		case msg := <-r.RecvMsg():
+			if len(msg) != 3 {
+				continue
+			}
 			log.Printf("received message on router socket. From %s - action %s - payload %s", msg[0], msg[1], msg[2])
 		case <-r.Done:
 			log.Println("looks like we are done...")
 			return
-			//default:
-			//	log.Println("sleepy |||||||||||||||")
-			//	time.Sleep(time.Millisecond * 10)
+		case <-time.After(time.Millisecond * 10):
+			continue
 		}
 	}
 }
@@ -71,9 +73,10 @@ func (r *ZRouter) sendMsg(ID []byte, action []byte, msg []byte) {
 
 func (r *ZRouter) RecvMsg() <-chan [][]byte {
 	msg, err := r.sock.RecvMessageBytes(zmq4.DONTWAIT)
-
 	if err != nil {
-		log.Printf("error on router recvmsg function '%s' - '%s'", msg, err)
+		if err.Error() != "resource temporarily unavailable" {
+			log.Printf("error on router recvmsg function '%s' - '%s'", msg, err)
+		}
 		time.Sleep(time.Millisecond * 10)
 		return r.In
 	}

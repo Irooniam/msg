@@ -61,6 +61,8 @@ func (d *ZDealer) Run() {
 		case <-d.Done:
 			log.Println("looks like we are done...")
 			return
+		case <-time.After(time.Millisecond * 10):
+			continue
 		}
 
 	}
@@ -69,7 +71,9 @@ func (d *ZDealer) Run() {
 func (d *ZDealer) RecvMsg() <-chan [][]byte {
 	msg, err := d.sock.RecvMessageBytes(zmq4.DONTWAIT)
 	if err != nil {
-		log.Println(" dealer socket receive error ", msg, err)
+		if err.Error() != "resource temporarily unavailable" {
+			log.Printf("error on router recvmsg function '%s' - '%s'", msg, err)
+		}
 		time.Sleep(time.Millisecond * 10)
 		return d.In
 	}
