@@ -69,7 +69,7 @@ func (d *ZDealer) Run() {
 }
 
 func (d *ZDealer) RecvMsg() <-chan [][]byte {
-	msg, err := d.sock.RecvMessageBytes(0)
+	msg, err := d.sock.RecvMessageBytes(zmq4.DONTWAIT)
 	if err != nil {
 		if err.Error() != "resource temporarily unavailable" {
 			log.Printf("error on router recvmsg function '%s' - '%s'", msg, err)

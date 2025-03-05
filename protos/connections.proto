@@ -22,6 +22,13 @@ message ActionMsg {
   Actions actions = 1;
 }
 
+message RegisterDealer {
+  string id = 1;
+  string host = 2;
+  int32 port = 3;
+  google.protobuf.Timestamp sent_at = 4;
+}
+
 /**
  * Every message sent must have use Evelope
 **/
