@@ -50,11 +50,8 @@ func (r *ZRouter) Run() {
 		case out := <-r.Out:
 			log.Printf("sending message out to %s - %s", out[0], out[1])
 			r.sendMsg(out[0], out[1], out[2])
-		case msg := <-r.RecvMsg():
-			if len(msg) != 3 {
-				continue
-			}
-			log.Printf("received message on router socket. From %s - action %s - payload %s", msg[0], msg[1], msg[2])
+		case <-r.RecvMsg():
+			log.Println("RecvMsg channel select")
 		case <-r.Done:
 			log.Println("looks like we are done...")
 			return
@@ -81,10 +78,23 @@ func (r *ZRouter) RecvMsg() <-chan [][]byte {
 		return r.In
 	}
 
-	go func() {
-		r.In <- [][]byte{msg[0], msg[1], msg[2]}
-	}()
+	r.In <- [][]byte{msg[0], msg[1], msg[2]}
 	return r.In
+}
+
+/*
+*
+
+	Responsible for parsing all incoming messages from
+	Router socket
+
+*
+*/
+func (r *ZRouter) ParseIn() {
+	for {
+		msg := <-r.In
+		log.Println("Parse incoming message ", msg)
+	}
 }
 
 func NewZRouter(ID string) (*ZRouter, error) {

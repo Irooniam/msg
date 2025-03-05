@@ -56,8 +56,8 @@ func (d *ZDealer) Run() {
 		case out := <-d.Out:
 			log.Printf("sending message out to router payload: %v", out)
 			d.sendMsg(out[0], out[1])
-		case msg := <-d.RecvMsg():
-			log.Printf("received message on dealer socket. payload %s", msg)
+		case <-d.RecvMsg():
+			log.Println("received message on dealer socket.")
 		case <-d.Done:
 			log.Println("looks like we are done...")
 			return
@@ -69,19 +69,31 @@ func (d *ZDealer) Run() {
 }
 
 func (d *ZDealer) RecvMsg() <-chan [][]byte {
-	msg, err := d.sock.RecvMessageBytes(zmq4.DONTWAIT)
+	msg, err := d.sock.RecvMessageBytes(0)
 	if err != nil {
 		if err.Error() != "resource temporarily unavailable" {
 			log.Printf("error on router recvmsg function '%s' - '%s'", msg, err)
 		}
-		time.Sleep(time.Millisecond * 10)
 		return d.In
 	}
 
-	go func() {
-		d.In <- [][]byte{msg[0], msg[1]}
-	}()
+	d.In <- [][]byte{msg[0], msg[1]}
 	return d.In
+}
+
+/*
+*
+
+	Responsible for parsing all incoming messages from
+	dealer socket
+
+*
+*/
+func (r *ZDealer) ParseIn() {
+	for {
+		msg := <-r.In
+		log.Println("Parse incoming message ", msg)
+	}
 }
 
 func (d *ZDealer) sendMsg(action []byte, msg []byte) {
