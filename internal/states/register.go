@@ -54,7 +54,7 @@ func ParseAction(b []byte) (string, error) {
 	return actionMsg.Actions.String(), nil
 }
 
-func AddDealer(ID []byte, payload []byte, in chan [][]byte) error {
+func AddDealer(ID []byte, payload []byte) error {
 	var dealer pb.RegisterDealer
 	if err := proto.Unmarshal(payload, &dealer); err != nil {
 		return errors.New(fmt.Sprintf("Unable to Unmarshal RegisterDeal %s", err))
@@ -65,11 +65,7 @@ func AddDealer(ID []byte, payload []byte, in chan [][]byte) error {
 			ID:   dealer.Id,
 			Host: dealer.Host,
 			Port: int(dealer.Port),
-		})
-
-	x, ok := DEALERS.Load(string(ID))
-	if ok {
-		log.Println(x.(DealerInfo).Host)
-	}
+		},
+	)
 	return nil
 }

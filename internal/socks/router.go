@@ -14,11 +14,12 @@ import (
 )
 
 type ZRouter struct {
-	id   string
-	In   chan [][]byte
-	Out  chan [][]byte
-	Done chan bool
-	sock *zmq4.Socket
+	id    string
+	In    chan [][]byte
+	Out   chan [][]byte
+	Done  chan bool
+	PDone chan bool //channel for ParseIn Done
+	sock  *zmq4.Socket
 }
 
 func ChkRouterConf() error {
@@ -96,29 +97,38 @@ func (r *ZRouter) RecvMsg() <-chan [][]byte {
 */
 func (r *ZRouter) ParseIn() {
 	for {
-		msg := <-r.In
+		select {
+		case msg := <-r.In:
+			//have to receive 3 parts: header, action, payload
+			if len(msg) != 3 {
+				log.Printf("expected msg received to be 3 parts but is: %d", len(msg))
+				continue
+			}
 
-		//have to receive 3 parts: header, action, payload
-		if len(msg) != 3 {
-			log.Printf("expected msg received to be 3 parts but is: %d", len(msg))
-			continue
+			action, err := states.ParseAction(msg[1])
+			if err != nil {
+				log.Printf("tried getting action from msg but got %s", err)
+				continue
+			}
+
+			//determine which function to call depending on action
+			switch action {
+			case protos.Actions_ADD_DEALER.String():
+				log.Println("we are adding dealer yo")
+				if err := states.AddDealer(msg[0], msg[2]); err != nil {
+					log.Printf("tried adding dealer to states but got %s", err)
+					continue
+				}
+			default:
+				log.Printf("actions is %s - and we dont have match", action)
+
+			}
+			log.Println("Parse incoming message action ", msg, action)
+
+		case <-r.PDone:
+			log.Println("ParseIn goroutine is done")
+			return
 		}
-
-		action, err := states.ParseAction(msg[1])
-		if err != nil {
-			log.Printf("tried getting action from msg but got %s", err)
-			continue
-		}
-
-		switch action {
-		case protos.Actions_ADD_DEALER.String():
-			log.Println("we are adding dealer yo")
-		default:
-			log.Printf("actions is %s - and we dont have match", action)
-
-		}
-
-		log.Println("Parse incoming message action ", msg, action)
 	}
 }
 
@@ -136,6 +146,7 @@ func NewZRouter(ID string) (*ZRouter, error) {
 	in := make(chan [][]byte)
 	out := make(chan [][]byte)
 	done := make(chan bool)
+	pdone := make(chan bool)
 	log.Println("new router")
-	return &ZRouter{id: ID, In: in, Out: out, Done: done, sock: router}, nil
+	return &ZRouter{id: ID, In: in, Out: out, Done: done, PDone: pdone, sock: router}, nil
 }
