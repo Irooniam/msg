@@ -8,6 +8,8 @@ import (
 	"time"
 
 	"github.com/Irooniam/msg/conf"
+	"github.com/Irooniam/msg/internal/states"
+	"github.com/Irooniam/msg/protos"
 	"github.com/pebbe/zmq4"
 )
 
@@ -88,12 +90,35 @@ func (r *ZRouter) RecvMsg() <-chan [][]byte {
 	Responsible for parsing all incoming messages from
 	Router socket
 
+	We can turn the biz login in the loop into goroutine - leaving for now
+
 *
 */
 func (r *ZRouter) ParseIn() {
 	for {
 		msg := <-r.In
-		log.Println("Parse incoming message ", msg)
+
+		//have to receive 3 parts: header, action, payload
+		if len(msg) != 3 {
+			log.Printf("expected msg received to be 3 parts but is: %d", len(msg))
+			continue
+		}
+
+		action, err := states.ParseAction(msg[1])
+		if err != nil {
+			log.Printf("tried getting action from msg but got %s", err)
+			continue
+		}
+
+		switch action {
+		case protos.Actions_ADD_DEALER.String():
+			log.Println("we are adding dealer yo")
+		default:
+			log.Printf("actions is %s - and we dont have match", action)
+
+		}
+
+		log.Println("Parse incoming message action ", msg, action)
 	}
 }
 

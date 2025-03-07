@@ -1,6 +1,8 @@
 package states
 
 import (
+	"errors"
+	"fmt"
 	"log"
 	"time"
 
@@ -9,6 +11,7 @@ import (
 	"google.golang.org/protobuf/types/known/timestamppb"
 )
 
+// craft the proto msg and send out to router via channel
 func RegisterDealer(ID string, host string, port int32, out chan [][]byte) error {
 	log.Println(out)
 	apb := &pb.ActionMsg{
@@ -34,5 +37,39 @@ func RegisterDealer(ID string, host string, port int32, out chan [][]byte) error
 
 	out <- [][]byte{ab, payloadb}
 	log.Println("register sent")
+	return nil
+}
+
+func ParseAction(b []byte) (string, error) {
+	var actionMsg pb.ActionMsg
+	if err := proto.Unmarshal(b, &actionMsg); err != nil {
+		return "", errors.New(fmt.Sprintf("Unable to Unmarshal actions %s", err))
+	}
+
+	/*
+		we dont unmarshall payload because each action
+		has its own protos
+	*/
+	log.Println("action ", actionMsg.Actions)
+	return actionMsg.Actions.String(), nil
+}
+
+func AddDealer(ID []byte, payload []byte, in chan [][]byte) error {
+	var dealer pb.RegisterDealer
+	if err := proto.Unmarshal(payload, &dealer); err != nil {
+		return errors.New(fmt.Sprintf("Unable to Unmarshal RegisterDeal %s", err))
+	}
+
+	DEALERS.Store(string(ID),
+		DealerInfo{
+			ID:   dealer.Id,
+			Host: dealer.Host,
+			Port: int(dealer.Port),
+		})
+
+	x, ok := DEALERS.Load(string(ID))
+	if ok {
+		log.Println(x.(DealerInfo).Host)
+	}
 	return nil
 }
