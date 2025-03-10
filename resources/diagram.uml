@@ -1,0 +1,13 @@
+@startuml
+
+boundary	Directory
+control		Dealer
+
+Directory -> Directory: Start listening
+Dealer -> Directory: Connect to Directory
+Dealer -> Dealer: Create New Router Socket
+Dealer -> Directory: Send New Router Socket Info
+Directory -> Dealer: Broadcast Router Info
+
+@enduml 
+
