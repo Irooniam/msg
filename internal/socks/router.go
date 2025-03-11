@@ -9,7 +9,6 @@ import (
 
 	"github.com/Irooniam/msg/conf"
 	"github.com/Irooniam/msg/internal/states"
-	"github.com/Irooniam/msg/protos"
 	"github.com/pebbe/zmq4"
 )
 
@@ -105,15 +104,20 @@ func (r *ZRouter) ParseIn() {
 				continue
 			}
 
-			action, err := states.ParseAction(msg[1])
+			action, err := states.TranslateAction(msg[1])
 			if err != nil {
 				log.Printf("tried getting action from msg but got %s", err)
 				continue
 			}
 
-			//determine which function to call depending on action
-			switch action {
-			case protos.Actions_ADD_DEALER.String():
+			//all messages go / recv in []byte
+			saction := string(action)
+
+			/*
+				We are matching what the action message TRANSLATES to not actual msg (DR)
+			*/
+			switch saction {
+			case "REGISTER-DEALER":
 				log.Println("we are adding dealer yo")
 				if err := states.AddDealer(msg[0], msg[2]); err != nil {
 					log.Printf("tried adding dealer to states but got %s", err)

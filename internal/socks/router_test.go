@@ -24,7 +24,7 @@ func TestRegisterDealerHappyPath(t *testing.T) {
 	go dealer.ParseIn()
 	wg.Add(4)
 
-	err = states.RegisterDealer("test-dealer", "127.0.0.1", 9988, dealer.Out)
+	err = states.RegisterDealer("test-dealer", dealer.Out)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -36,13 +36,10 @@ func TestRegisterDealerHappyPath(t *testing.T) {
 	}
 
 	d := sd.(states.DealerInfo)
-	if d.Port != 9988 {
-		t.Fatalf("Expecting port of dealer 9988 but got %d", d.Port)
+	if d.ID != "test-dealer" {
+		t.Fatalf("Expecting dealer ID to be test-dealer but got %s", d.ID)
 	}
 
-	if d.Host != "127.0.0.1" {
-		t.Fatalf("Expecting host to be 127.0.0.1 but got %s", d.Host)
-	}
 	wg.Done()
 }
 
