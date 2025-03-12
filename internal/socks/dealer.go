@@ -8,7 +8,7 @@ import (
 	"time"
 
 	"github.com/Irooniam/msg/conf"
-	"github.com/pebbe/zmq4"
+	zmq "github.com/pebbe/zmq4/draft"
 )
 
 type ZDealer struct {
@@ -16,7 +16,7 @@ type ZDealer struct {
 	In   chan [][]byte
 	Out  chan [][]byte
 	Done chan bool
-	sock *zmq4.Socket
+	sock *zmq.Socket
 }
 
 // centralize config checking here
@@ -69,7 +69,7 @@ func (d *ZDealer) Run() {
 }
 
 func (d *ZDealer) RecvMsg() <-chan [][]byte {
-	msg, err := d.sock.RecvMessageBytes(zmq4.DONTWAIT)
+	msg, err := d.sock.RecvMessageBytes(zmq.DONTWAIT)
 	if err != nil {
 		if err.Error() != "resource temporarily unavailable" {
 			log.Printf("error on router recvmsg function '%s' - '%s'", msg, err)
@@ -97,7 +97,7 @@ func (r *ZDealer) ParseIn() {
 }
 
 func (d *ZDealer) sendMsg(action []byte, msg []byte) {
-	x, err := d.sock.SendBytes(action, zmq4.SNDMORE)
+	x, err := d.sock.SendBytes(action, zmq.SNDMORE)
 	log.Println(x, err)
 
 	x, err = d.sock.SendBytes(msg, 0)
@@ -127,7 +127,7 @@ func (d *ZDealer) Connect(connstr string) error {
 }
 
 func NewDealer(ID string) (*ZDealer, error) {
-	dealer, err := zmq4.NewSocket(zmq4.DEALER)
+	dealer, err := zmq.NewSocket(zmq.DEALER)
 	if err != nil {
 		return &ZDealer{}, err
 	}

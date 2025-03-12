@@ -13,10 +13,12 @@ validated against
 */
 var ACTIONS = map[string]string{
 	"REGISTER-DEALER": "DR",
+	"DEALER-EVENT":    "DE",
 }
 
 var RACTIONS = map[string]string{
 	"DR": "REGISTER-DEALER",
+	"DE": "DEALER-EVENT",
 }
 
 func TranslateAction(action []byte) ([]byte, error) {

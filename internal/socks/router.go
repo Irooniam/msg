@@ -9,7 +9,7 @@ import (
 
 	"github.com/Irooniam/msg/conf"
 	"github.com/Irooniam/msg/internal/states"
-	"github.com/pebbe/zmq4"
+	zmq "github.com/pebbe/zmq4/draft"
 )
 
 type ZRouter struct {
@@ -18,7 +18,7 @@ type ZRouter struct {
 	Out   chan [][]byte
 	Done  chan bool
 	PDone chan bool //channel for ParseIn Done
-	sock  *zmq4.Socket
+	sock  *zmq.Socket
 }
 
 func ChkRouterConf() error {
@@ -64,19 +64,28 @@ func (r *ZRouter) Run() {
 }
 
 func (r *ZRouter) sendMsg(ID []byte, action []byte, msg []byte) {
-	r.sock.SendBytes(ID, zmq4.SNDMORE)
-	r.sock.SendBytes(action, zmq4.SNDMORE)
+	r.sock.SendBytes(ID, zmq.SNDMORE)
+	r.sock.SendBytes(action, zmq.SNDMORE)
 	r.sock.SendBytes(msg, 0)
 
 }
 
 func (r *ZRouter) RecvMsg() <-chan [][]byte {
-	msg, err := r.sock.RecvMessageBytes(zmq4.DONTWAIT)
+	msg, err := r.sock.RecvMessageBytes(zmq.DONTWAIT)
 	if err != nil {
 		if err.Error() != "resource temporarily unavailable" {
 			log.Printf("error on router recvmsg function '%s' - '%s'", msg, err)
 		}
 		time.Sleep(time.Millisecond * 10)
+		return r.In
+	}
+
+	/*
+		dis/connects events are received as message.  Message is msg[0] = Dealer ID,
+		msg[1] = empty slice
+	*/
+	if len(msg) == 2 && len(msg[1]) == 0 {
+		r.In <- [][]byte{msg[0], []byte(states.ACTIONS["DEALER-EVENT"]), []byte{0x0}}
 		return r.In
 	}
 
@@ -117,17 +126,14 @@ func (r *ZRouter) ParseIn() {
 				We are matching what the action message TRANSLATES to not actual msg (DR)
 			*/
 			switch saction {
-			case "REGISTER-DEALER":
-				log.Println("we are adding dealer yo")
-				if err := states.AddDealer(msg[0], msg[2]); err != nil {
-					log.Printf("tried adding dealer to states but got %s", err)
-					continue
-				}
+			case "DEALER-EVENT":
+				log.Println("dealer event ", msg)
+				states.DealerEvent(msg[0], r.Out)
+
 			default:
-				log.Printf("actions is %s - and we dont have match", action)
+				log.Printf("actions is %s - and we dont have case math", action)
 
 			}
-			log.Println("Parse incoming message action ", msg, action)
 
 		case <-r.PDone:
 			log.Println("ParseIn goroutine is done")
@@ -137,7 +143,7 @@ func (r *ZRouter) ParseIn() {
 }
 
 func NewZRouter(ID string) (*ZRouter, error) {
-	router, err := zmq4.NewSocket(zmq4.ROUTER)
+	router, err := zmq.NewSocket(zmq.ROUTER)
 	if err != nil {
 		return &ZRouter{}, err
 	}
@@ -146,6 +152,10 @@ func NewZRouter(ID string) (*ZRouter, error) {
 	if err != nil {
 		return &ZRouter{}, errors.New(fmt.Sprintf("Tried setting identity but got error: %s", err))
 	}
+
+	//make sure we are notified of dis/connects
+	router.SetConnectTimeout(0)
+	router.SetRouterNotify(zmq.NotifyConnect | zmq.NotifyDisconnect)
 
 	in := make(chan [][]byte)
 	out := make(chan [][]byte)
