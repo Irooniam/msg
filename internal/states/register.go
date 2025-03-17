@@ -51,5 +51,4 @@ func DealerEvent(ID []byte, out chan [][]byte) {
 	//dealers exists so remove them from DEALER map
 	log.Println("already have dealer so remove ", string(ID))
 	RemoveDealer(ID, out)
-	log.Println("received dealer event for ", string(ID))
 }

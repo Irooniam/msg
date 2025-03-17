@@ -126,7 +126,7 @@ func (r *ZRouter) ParseIn() {
 				We are matching what the action message TRANSLATES to not actual msg (DR)
 			*/
 			switch saction {
-			case "DEALER-EVENT":
+			case "DEALER-EVENT": //connect/disconnect
 				log.Println("dealer event ", msg)
 				states.DealerEvent(msg[0], r.Out)
 
