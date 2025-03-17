@@ -1,14 +1,12 @@
 package states
 
-import (
-	"sync"
-)
-
-type DealerInfo struct {
-	ID   string
-	Host string
-	Port int
+type RouterInfo struct {
+	ID       string
+	Host     string
+	Port     int
+	Endpoint string
 }
 
-// use sync.map so goroutine safe
-var DEALERS sync.Map
+type DealerInfo struct {
+	ID string
+}

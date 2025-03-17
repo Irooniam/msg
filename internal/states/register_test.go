@@ -2,6 +2,7 @@ package states_test
 
 import (
 	"log"
+	"sync"
 	"testing"
 
 	"github.com/Irooniam/msg/internal/states"
@@ -9,12 +10,13 @@ import (
 
 func TestRegisterDealerHappyPath(t *testing.T) {
 	out := make(chan [][]byte)
-	err := states.AddDealer([]byte("test-dealer"), out)
+	var m sync.Map
+	err := states.AddDealer(&m, []byte("test-dealer"), out)
 	if err != nil {
 		t.Errorf("didnt expect error when adding new dealer to map %s", err)
 	}
 
-	d, ok := states.DEALERS.Load("test-dealer")
+	d, ok := m.Load("test-dealer")
 	if !ok {
 		t.Error("Expected DEALERS to have test-dealer but cant key test-dealer")
 	}
@@ -28,10 +30,11 @@ func TestRegisterDealerHappyPath(t *testing.T) {
 
 func TestRemoveDealerHappyPath(t *testing.T) {
 	out := make(chan [][]byte)
+	var m sync.Map
 	var i int = 0
-	_ = states.AddDealer([]byte("test-dealer"), out)
+	_ = states.AddDealer(&m, []byte("test-dealer"), out)
 
-	states.DEALERS.Range(func(k, v any) bool {
+	m.Range(func(k, v any) bool {
 		log.Println(k, v)
 		i++
 		return true
@@ -41,10 +44,10 @@ func TestRemoveDealerHappyPath(t *testing.T) {
 		t.Errorf("Expecting 1 key in map but got %d", i)
 	}
 
-	states.RemoveDealer([]byte("test-dealer"), out)
+	states.RemoveDealer(&m, []byte("test-dealer"), out)
 
 	i = 0
-	states.DEALERS.Range(func(k, v any) bool {
+	m.Range(func(k, v any) bool {
 		log.Println(k, v)
 		i++
 		return true
