@@ -4,10 +4,8 @@ import (
 	"errors"
 	"fmt"
 	"log"
-	"os"
 	"time"
 
-	"github.com/Irooniam/msg/conf"
 	"github.com/Irooniam/msg/internal/states"
 	zmq "github.com/pebbe/zmq4/draft"
 )
@@ -19,18 +17,6 @@ type ZRouter struct {
 	Done  chan bool
 	PDone chan bool //channel for ParseIn Done
 	sock  *zmq.Socket
-}
-
-func ChkRouterConf() error {
-	if os.Getenv(conf.MSG_DIR_HOST) == "" {
-		return errors.New(fmt.Sprintf("env var for directory host %s is not set", conf.MSG_DIR_HOST))
-	}
-
-	if os.Getenv(conf.MSG_DIR_PORT) == "" {
-		return errors.New(fmt.Sprintf("env var for directory port %s is not set", conf.MSG_DIR_PORT))
-	}
-
-	return nil
 }
 
 func (r *ZRouter) Bind(bindstr string) error {

@@ -1,0 +1,273 @@
+package ws
+
+import (
+	"context"
+	"fmt"
+
+	"log"
+
+	"net/http"
+
+	"encoding/base64"
+	"encoding/json"
+	"io/ioutil"
+	"time"
+
+	"coder.com/websocket"
+	"github.com/Irooniam/msg/internal/socks"
+	"github.com/Irooniam/msg/internal/states"
+	"github.com/weaviate/weaviate/modules/ner-transformers/additional/models"
+	"golang.org/x/time/rate"
+)
+
+type WS struct {
+	//Clients *sync.Map
+	router *socks.ZRouter
+}
+
+func (ws *WS) conncount() {
+	log.Println("starting conn count...")
+	for {
+		i := 0
+		states.DEALERS.Range(func(k, v interface{}) bool {
+			i++
+			return true
+		})
+		log.Printf("current connections %d ", i)
+		time.Sleep(time.Second * 5)
+	}
+}
+
+// this is receiver for messages coming FROM the router
+/*
+func (ws *WS) RouterRunner() {
+	for {
+		request, err := ws.router.Socket.RecvMessage()
+		if err != nil {
+			log.Println(err)
+			continue
+		}
+
+		log.Printf("router recv: dealer %s -- msg %s\n", string(request[0]), string(request[1]))
+
+		//deserialize protobuf message
+		var msg pb.TailReq
+		err = proto.Unmarshal(request[1], &msg)
+		if err != nil {
+			log.Println(err)
+			continue
+		}
+
+		log.Printf("deserialized message %s - %d - %s\n", msg.PIN, msg.Timestamp, msg.Message)
+
+		//Broadcast tail message received to all viewers for this pin
+		BroadcastTail(&msg)
+	}
+}
+*/
+
+/*
+func (ws *WS) heartbeat() {
+	for {
+		Clients.Range(func(k, v interface{}) bool {
+			log.Println("sending heartbeat to ", v.(*Client).ID)
+			err := v.(*Client).Conn.Write(context.Background(), websocket.MessageText, []byte("h"))
+			if err != nil {
+				log.Println(err)
+
+				//delete client from register
+				ws.Closer(v.(*Client))
+			}
+			return true
+		})
+		time.Sleep(time.Second * 5)
+	}
+}
+*/
+
+/*
+	func (ws *WS) Closer(client *Client) {
+		log.Println("closing connection", client.ID)
+
+		err := client.Conn.Close(websocket.StatusNormalClosure, "good bye")
+		if err != nil {
+			log.Println(err)
+		}
+
+		//remove from global registry
+		Conns.Delete(client.Conn)
+		Clients.Delete(client.Conn)
+		RemoveSubscriber(client)
+	}
+*/
+
+func (ws *WS) hand(w http.ResponseWriter, r *http.Request) {
+	rt := context.WithValue(r.Context(), "websocket-key", r.Header.Get("Sec-WebSocket-Key"))
+	c, err := websocket.Accept(w, r.WithContext(rt), &websocket.AcceptOptions{
+		Subprotocols:       []string{"echo"},
+		InsecureSkipVerify: true,
+	})
+	if err != nil {
+		log.Println("error in handling websocket ", err)
+		log.Println(err)
+		return
+	}
+
+	//before doing anything - check the token from query string
+	token := r.URL.Query().Get("token")
+	if token == "" {
+		log.Println("token query string empty")
+		c.Close(websocket.StatusPolicyViolation, "missing token")
+		return
+	}
+
+	return
+
+	log.Println("||||||||||||| ", token)
+
+	//decode url the token into base 64
+	ctoken, err := base64.StdEncoding.DecodeString(token)
+	if err != nil {
+		log.Println("problem b64 decoding token ", err)
+		c.Close(websocket.StatusPolicyViolation, "missing token")
+		return
+	}
+
+	//finally try to decrypt
+	cleartoken, err := utils.Decrypt([]byte(config.SecretKey), ctoken)
+	if err != nil {
+		log.Println("decrypt token problem ", err)
+		c.Close(websocket.StatusPolicyViolation, "missing token")
+		return
+	}
+
+	log.Println("decrypted token ", string(cleartoken))
+	var subtoken models.Token
+	err = json.Unmarshal(cleartoken, &subtoken)
+	if err != nil {
+		log.Println("problem turning cleartext into subscriber json ", err)
+		c.Close(websocket.StatusPolicyViolation, "missing token")
+		return
+	}
+
+	log.Println(subtoken.ID)
+	log.Println(subtoken.IP)
+	log.Println(subtoken.PIN)
+
+	clientId := r.Header.Get("Sec-WebSocket-Key")
+	//defer ws.Closer(c, clientId)
+
+	client := &Client{}
+	client.Producer = false
+	client.PIN = subtoken.PIN
+	client.ConnID = clientId
+	client.ID = subtoken.ID
+	client.Username = subtoken.Username
+	client.Conn = c
+	//defer ws.Closer(client)
+
+	log.Println("username ", subtoken.Username)
+
+	Clients.Store(client.Conn, client)
+
+	/*
+		@todo - create general purpose token
+		with producer attribute and if producer
+		dont hadd them as subscriber
+	*/
+	AddSubscriber(client)
+
+	l := rate.NewLimiter(rate.Every(time.Millisecond*10), 2)
+
+	for {
+		err = ws.echo(rt, c, l)
+		if err != nil {
+			log.Println("failed to echo with %v: %w", r.RemoteAddr, err)
+			return
+		}
+	}
+
+}
+
+func NewWS(router *socks.ZRouter, secure bool) error {
+	/*
+		Clients = &sync.Map{}
+		Subscribers = &sync.Map{}
+		Conns = &sync.Map{}
+
+		ws := WS{router}
+
+		go ws.heartbeat()
+		go ws.RouterRunner()
+		go ws.conncount()
+	*/
+
+	connuri := fmt.Sprintf("0.0.0.0:%d", 9080)
+
+	/*
+		l, err := net.Listen("tcp", connuri)
+		if err != nil {
+			log.Fatalf("failed to listen: %v", err)
+		}
+		defer l.Close()
+	*/
+
+	s := &http.Server{}
+	s.Handler = http.HandlerFunc(ws.hand)
+	s.Addr = connuri
+	log.Println("starting ws on ", connuri)
+	if secure {
+		err := s.ListenAndServeTLS("sotail.crt", "sotail.key")
+		if err != nil {
+			log.Fatal(err)
+			return err
+		}
+	}
+
+	err := s.ListenAndServe()
+	if err != nil {
+		log.Fatal(err)
+		return err
+	}
+
+	defer s.Close()
+	return nil
+}
+
+/*
+this the routine responsible for sending / receiving from viewer client
+*/
+func (ws *WS) echo(ctx context.Context, c *websocket.Conn, l *rate.Limiter) error {
+	//keep connection open for 1 day
+	ctx, cancel := context.WithTimeout(ctx, time.Second*86400)
+	defer cancel()
+
+	err := l.Wait(ctx)
+	if err != nil {
+		return err
+	}
+
+	typ, r, err := c.Reader(ctx)
+	if err != nil {
+		return err
+	}
+
+	b, _ := ioutil.ReadAll(r)
+
+	log.Println("received message ", typ, string(b))
+
+	if string(b) == "h" {
+		return nil
+	}
+
+	//unless heartbeat it has to be be in message format
+	var msg msg.Message
+	if err := json.Unmarshal(b, &msg); err != nil {
+		log.Println("received message not of type Message", err)
+		return err
+	}
+
+	log.Println("valid message ", msg)
+	ParseMsg(c, msg)
+	return nil
+}
