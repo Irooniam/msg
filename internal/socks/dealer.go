@@ -4,10 +4,8 @@ import (
 	"errors"
 	"fmt"
 	"log"
-	"os"
 	"time"
 
-	"github.com/Irooniam/msg/conf"
 	zmq "github.com/pebbe/zmq4/draft"
 )
 
@@ -20,6 +18,7 @@ type ZDealer struct {
 }
 
 // centralize config checking here
+/*
 func ChkDealerConf() error {
 	if os.Getenv(conf.MSG_DIR_HOST) == "" {
 		return errors.New(fmt.Sprintf("env var for directory host %s is not set", conf.MSG_DIR_HOST))
@@ -43,7 +42,7 @@ func ChkDealerConf() error {
 
 	return nil
 }
-
+*/
 /*
 we cant share socket across goroutines
 all send/recv biz rules has to be in

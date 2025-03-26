@@ -1,4 +1,4 @@
-package services
+package directory
 
 import (
 	"errors"
@@ -12,7 +12,7 @@ import (
 	"github.com/Irooniam/msg/internal/socks"
 )
 
-type Directory struct {
+type DirService struct {
 	ID       string
 	Host     string
 	Port     int
@@ -34,32 +34,51 @@ type ServiceInfo struct {
 	Endpoint   string
 }
 
-func (d *Directory) RemoveDealer(ID []byte) {
+func (d *DirService) RemoveDealer(ID []byte) {
 	d.Dealers.Delete(string(ID))
 }
 
-func (d *Directory) AddDealer(info ServiceInfo) error {
+func (d *DirService) AddDealer(info ServiceInfo) error {
 	d.Dealers.Store(info.ID, info)
 	return nil
 }
 
-func (d *Directory) DealerEvent(ID []byte) {
+/*
+*
+wrap router.Run since router is private
+in DirService struct
+*
+*/
+func (d *DirService) RouterRun() {
+	d.router.Run()
+}
+
+func (d *DirService) DealerEvent(ID []byte) {
 	_, ok := d.Dealers.Load(string(ID))
 
-	//dont have this dealer in DEALER map
+	/**
+	If we dont have this dealer - dont do anything because
+	once dealer sends registration they will be added to map
+	**/
 	if !ok {
-		log.Println("dont have dealer so we add ", string(ID))
-		d.AddDealer(ID)
+		log.Println("dont have dealer so dont do anything ", string(ID))
 		return
 	}
 
 	//dealers exists so remove them from DEALER map
 	log.Println("already have dealer so remove ", string(ID))
-	RemoveDealer(m, ID, out)
+	d.RemoveDealer(ID)
 }
 
-func ChkDirectoryConf() (Directory, error) {
-	dir := Directory{}
+func (d *DirService) RecvMsg() {
+	for {
+		msg := <-d.router.In
+		log.Println("Directory got message ", msg)
+	}
+}
+
+func ChkDirServiceConf() (DirService, error) {
+	dir := DirService{}
 	var err error
 
 	if dir.ID = os.Getenv(conf.MSG_DIR_ID); dir.ID == "" {
@@ -82,23 +101,23 @@ func ChkDirectoryConf() (Directory, error) {
 	return dir, nil
 }
 
-func NewDirectory() (*Directory, error) {
+func New() (*DirService, error) {
 
-	dirConf, err := ChkDirectoryConf()
+	dirConf, err := ChkDirServiceConf()
 	if err != nil {
-		return &Directory{}, err
+		return &DirService{}, err
 	}
 
 	router, err := socks.NewZRouter(dirConf.ID)
 	if err != nil {
-		return &Directory{}, err
+		return &DirService{}, err
 	}
 
 	if err := router.Bind(dirConf.Endpoint); err != nil {
-		return &Directory{}, err
+		return &DirService{}, err
 	}
 
-	dir := Directory{}
+	dir := DirService{}
 	dir.router = router
 	return &dir, nil
 }

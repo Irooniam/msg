@@ -20,14 +20,13 @@ type ZRouter struct {
 }
 
 func (r *ZRouter) Bind(bindstr string) error {
-	conn := fmt.Sprintf("tcp://%s", bindstr)
-	log.Println("attempting to bind router socket to ", conn)
-	err := r.sock.Bind(conn)
+	log.Println("attempting to bind router socket to ", bindstr)
+	err := r.sock.Bind(bindstr)
 	if err != nil {
 		return err
 	}
 
-	log.Println("successfully bound socket to ", conn)
+	log.Println("successfully bound socket to ", bindstr)
 	return nil
 }
 
@@ -114,7 +113,7 @@ func (r *ZRouter) ParseIn() {
 			switch saction {
 			case "DEALER-EVENT": //connect/disconnect
 				log.Println("dealer event ", msg)
-				states.DealerEvent(msg[0], r.Out)
+				r.Out <- msg
 
 			default:
 				log.Printf("actions is %s - and we dont have case math", action)
