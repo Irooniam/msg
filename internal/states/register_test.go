@@ -8,7 +8,7 @@ import (
 	"github.com/Irooniam/msg/internal/states"
 )
 
-func TestRegisterDealerHappyPath(t *testing.T) {
+func TestAddDealerHappyPath(t *testing.T) {
 	out := make(chan [][]byte)
 	var m sync.Map
 	err := states.AddDealer(&m, []byte("test-dealer"), out)

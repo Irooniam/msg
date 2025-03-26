@@ -22,11 +22,12 @@ message ActionMsg {
   Actions actions = 1;
 }
 
-message RegisterDealer {
-  string id = 1;
-  string host = 2;
-  int32 port = 3;
-  google.protobuf.Timestamp sent_at = 4;
+message AddWS {
+  string dealer_id = 1;
+  string router_host = 2;
+  int32 router_port = 3;
+  string router_endpoint = 4;
+  google.protobuf.Timestamp sent_at = 5;
 }
 
 /**

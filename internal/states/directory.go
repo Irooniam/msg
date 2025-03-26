@@ -7,11 +7,20 @@ import (
 
 /*
 *
-To register Dealer we only need their ID
-Dealers connect to Router, they themselves dont listen
+We register WS - not just dealer zmq socket
 *
 */
-func RegisterDealer(ID string, out chan [][]byte) error {
+
+type DirRegistry struct {
+	Dealers *sync.Map
+}
+
+// make sure to change ID to string in map lookup
+func (d *DirRegistry) RemoveDealer(m *sync.Map, ID []byte, out chan [][]byte) {
+	d.Dealers.Delete(string(ID))
+}
+
+func RegisterWS(ID string, out chan [][]byte) error {
 	action := []byte(ACTIONS["REGISTER-DEALER"])
 	out <- [][]byte{action, []byte(ID)}
 	log.Println("register sent")
@@ -23,12 +32,8 @@ func RemoveDealer(m *sync.Map, ID []byte, out chan [][]byte) {
 	m.Delete(string(ID))
 }
 
-func AddDealer(m *sync.Map, ID []byte, out chan [][]byte) error {
-	m.Store(string(ID),
-		DealerInfo{
-			ID: string(ID),
-		},
-	)
+func AddService(m *sync.Map, info ServiceInfo, out chan [][]byte) error {
+	m.Store(info.ID, info)
 	return nil
 }
 
