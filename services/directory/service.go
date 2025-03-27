@@ -10,6 +10,7 @@ import (
 
 	"github.com/Irooniam/msg/conf"
 	"github.com/Irooniam/msg/internal/socks"
+	"github.com/Irooniam/msg/internal/states"
 )
 
 type DirService struct {
@@ -54,6 +55,7 @@ func (d *DirService) RouterRun() {
 }
 
 func (d *DirService) DealerEvent(ID []byte) {
+	log.Println(string(ID))
 	_, ok := d.Dealers.Load(string(ID))
 
 	/**
@@ -73,6 +75,35 @@ func (d *DirService) DealerEvent(ID []byte) {
 func (d *DirService) RecvMsg() {
 	for {
 		msg := <-d.router.In
+
+		//have to receive 3 parts: header, action, payload
+		if len(msg) != 3 {
+			log.Printf("expected msg received to be 3 parts but is: %d", len(msg))
+			continue
+		}
+
+		action, err := states.TranslateAction(msg[1])
+		if err != nil {
+			log.Printf("tried getting action from msg but got %s", err)
+			continue
+		}
+
+		//all messages go / recv in []byte
+		saction := string(action)
+
+		/*
+		   We are matching what the action message TRANSLATES to not actual msg (DR)
+		*/
+		switch saction {
+		case "DEALER-EVENT": //connect/disconnect
+			log.Println("dealer event ", msg)
+			d.DealerEvent(msg[0])
+
+		default:
+			log.Printf("actions is %s - and we dont have case math", action)
+
+		}
+
 		log.Println("Directory got message ", msg)
 	}
 }
@@ -117,7 +148,13 @@ func New() (*DirService, error) {
 		return &DirService{}, err
 	}
 
-	dir := DirService{}
-	dir.router = router
+	dir := DirService{
+		ID:       dirConf.ID,
+		Host:     dirConf.Host,
+		Port:     dirConf.Port,
+		Endpoint: dirConf.Endpoint,
+		Dealers:  &sync.Map{},
+		router:   router,
+	}
 	return &dir, nil
 }
