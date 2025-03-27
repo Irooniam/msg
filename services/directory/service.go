@@ -1,6 +1,7 @@
 package directory
 
 import (
+	"bytes"
 	"errors"
 	"fmt"
 	"log"
@@ -10,7 +11,6 @@ import (
 
 	"github.com/Irooniam/msg/conf"
 	"github.com/Irooniam/msg/internal/socks"
-	"github.com/Irooniam/msg/internal/states"
 )
 
 type DirService struct {
@@ -32,6 +32,7 @@ type ServiceInfo struct {
 	ID         string
 	RouterHost string
 	RouterPort int
+	RouterID   string
 	Endpoint   string
 }
 
@@ -39,8 +40,20 @@ func (d *DirService) RemoveDealer(ID []byte) {
 	d.Dealers.Delete(string(ID))
 }
 
+/*
+*
+AddDealer stores the serviceinfo struct into map.sync
+It also has to broadcast current snapshot of all connected services
+*
+*/
 func (d *DirService) AddDealer(info ServiceInfo) error {
 	d.Dealers.Store(info.ID, info)
+
+	//@todo for each dealer - send proto msg with dealer router conn info
+	d.Dealers.Range(func(key, value interface{}) bool {
+		fmt.Printf("Key: %s, Value: %v", key, value.(ServiceInfo))
+		return true // Continue iterating
+	})
 	return nil
 }
 
@@ -72,6 +85,20 @@ func (d *DirService) DealerEvent(ID []byte) {
 	d.RemoveDealer(ID)
 }
 
+/*
+*
+Router zmq socket is not exposed directly
+Only way to send / recv messages is via channels
+*
+*/
+func (d *DirService) RouterIn() chan [][]byte {
+	return d.router.In
+}
+
+func (d *DirService) RouterOut() chan [][]byte {
+	return d.router.Out
+}
+
 func (d *DirService) RecvMsg() {
 	for {
 		msg := <-d.router.In
@@ -82,7 +109,15 @@ func (d *DirService) RecvMsg() {
 			continue
 		}
 
-		action, err := states.TranslateAction(msg[1])
+		/*
+			determine if this is dealer dis / connect msg
+			slices are pointers so cant do straight compare
+		*/
+		if bytes.Equal(msg[2], []byte{0}) {
+			msg[1] = []byte(ACTIONS["DEALER-EVENT"])
+		}
+
+		action, err := TranslateAction(msg[1])
 		if err != nil {
 			log.Printf("tried getting action from msg but got %s", err)
 			continue
@@ -92,19 +127,27 @@ func (d *DirService) RecvMsg() {
 		saction := string(action)
 
 		/*
-		   We are matching what the action message TRANSLATES to not actual msg (DR)
+		   We are matching what the action message TRANSLATES to not actual msg (e.g. DR)
 		*/
 		switch saction {
 		case "DEALER-EVENT": //connect/disconnect
 			log.Println("dealer event ", msg)
 			d.DealerEvent(msg[0])
 
+		case "REGISTER-DEALER": //new dealer sent msg
+			log.Println("we have new dealer with ID", string(msg[0]))
+			sinfo := ServiceInfo{}
+			sinfo.ID = string(msg[0])
+			err := d.AddDealer(sinfo)
+			if err != nil {
+				log.Printf("Error registering dealer: %s", err)
+			}
+
 		default:
 			log.Printf("actions is %s - and we dont have case math", action)
 
 		}
 
-		log.Println("Directory got message ", msg)
 	}
 }
 
@@ -132,13 +175,7 @@ func ChkDirServiceConf() (DirService, error) {
 	return dir, nil
 }
 
-func New() (*DirService, error) {
-
-	dirConf, err := ChkDirServiceConf()
-	if err != nil {
-		return &DirService{}, err
-	}
-
+func New(dirConf DirService) (*DirService, error) {
 	router, err := socks.NewZRouter(dirConf.ID)
 	if err != nil {
 		return &DirService{}, err

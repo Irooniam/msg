@@ -20,7 +20,12 @@ func main() {
 		log.Fatalf("Tried to read .env but got error:%s", err)
 	}
 
-	directory, err := directory.New()
+	dirConf, err := directory.ChkDirServiceConf()
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	directory, err := directory.New(dirConf)
 	if err != nil {
 		log.Fatal(err)
 	}
