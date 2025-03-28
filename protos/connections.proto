@@ -22,12 +22,17 @@ message ActionMsg {
   Actions actions = 1;
 }
 
-message AddWS {
+message Service {
   string dealer_id = 1;
   string router_host = 2;
   int32 router_port = 3;
   string router_endpoint = 4;
-  google.protobuf.Timestamp sent_at = 5;
+  string router_id = 5;
+  google.protobuf.Timestamp sent_at = 6;
+}
+
+message BroadcastServices {
+  repeated Service services=1;
 }
 
 /**

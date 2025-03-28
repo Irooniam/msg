@@ -11,6 +11,8 @@ import (
 
 	"github.com/Irooniam/msg/conf"
 	"github.com/Irooniam/msg/internal/socks"
+	pb "github.com/Irooniam/msg/protos"
+	"google.golang.org/protobuf/proto"
 )
 
 type DirService struct {
@@ -49,11 +51,32 @@ It also has to broadcast current snapshot of all connected services
 func (d *DirService) AddDealer(info ServiceInfo) error {
 	d.Dealers.Store(info.ID, info)
 
+	services := make([]*pb.Service, 0)
+	dealers := []string{}
 	//@todo for each dealer - send proto msg with dealer router conn info
 	d.Dealers.Range(func(key, value interface{}) bool {
+		service := &pb.Service{}
+		v := value.(ServiceInfo)
+		service.DealerId = v.ID
+		service.RouterId = v.RouterID
+		service.RouterHost = v.RouterHost
+		service.RouterPort = int32(v.RouterPort)
+		service.RouterEndpoint = v.Endpoint
+		services = append(services, service)
+		dealers = append(dealers, v.ID)
 		fmt.Printf("Key: %s, Value: %v", key, value.(ServiceInfo))
 		return true // Continue iterating
 	})
+
+	payload, err := proto.Marshal(&pb.BroadcastServices{Services: services})
+	if err != nil {
+		return err
+	}
+
+	for k := range dealers {
+		d.router.Out <- [][]byte{[]byte(dealers[k]), []byte("DR"), payload}
+	}
+
 	return nil
 }
 

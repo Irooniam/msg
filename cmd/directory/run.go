@@ -12,7 +12,7 @@ const ENV_DIR_IP = "ENV_DIR_IP"
 const ENV_DIR_PORT = "ENV_DIR_PORT"
 
 func main() {
-	log.SetFlags(log.LstdFlags | log.Llongfile)
+	log.SetFlags(log.LstdFlags | log.Lshortfile)
 
 	log.Println("starting directory service...")
 
